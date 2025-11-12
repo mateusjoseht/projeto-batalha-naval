@@ -53,3 +53,10 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# Executável final
+batalha_naval
+batalha_naval.exe
+
+# Ignora pasta do VS Code
+.vscode/
