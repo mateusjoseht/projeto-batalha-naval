@@ -9,90 +9,69 @@
 #include <ctype.h>
 #include <stdbool.h>
 
-// --- Enums (Tipos Enumerados) ---
+// --- Enums (estados e orientações) ---
 
-/**
- * Define os possíveis estados de uma célula do tabuleiro.
- * [cite: 36]
- */
+// Estado de uma célula do tabuleiro.
 typedef enum { 
-    CELL_WATER, // Água (padrão)
-    CELL_SHIP,  // Navio posicionado
-    CELL_HIT,   // Navio atingido
-    CELL_MISS   // Tiro na água
+    CELL_WATER, // água
+    CELL_SHIP,  // navio posicionado
+    CELL_HIT,   // navio atingido
+    CELL_MISS   // tiro na água
 } CellState;
 
-/**
- * Define a orientação de um navio no tabuleiro.
- * [cite: 45]
- */
+// Orientação de um navio no tabuleiro.
 typedef enum { 
-    ORIENT_H, // Horizontal
-    ORIENT_V  // Vertical
+    ORIENT_H, // horizontal
+    ORIENT_V  // vertical
 } Orientation;
 
 
-// --- Structs (Estruturas de Dados) ---
+// --- Estruturas principais ---
 
-/**
- * Representa uma única célula do tabuleiro.
- * [cite: 37-40]
- */
+// Representa uma célula do tabuleiro.
 typedef struct {
-    CellState state; // O estado (água, navio, etc.)
-    int ship_id;     // ID do navio que está aqui (ou -1 se for água)
+    CellState state; // estado atual da célula
+    int ship_id;     // id do navio presente, -1 se vazio
 } Cell;
 
-/**
- * Representa o tabuleiro do jogo.
- * [cite: 41-44]
- */
+// Representa o tabuleiro do jogo.
+// 'cells' é um array linear de tamanho rows * cols.
 typedef struct {
-    int rows, cols; // Dimensões
-    Cell *cells;    // Ponteiro para o array de células (alocado com malloc) [cite: 43]
+    int rows, cols;
+    Cell *cells;    // alocado dinamicamente
 } Board;
 
-/**
- * Representa um navio da frota.
- * [cite: 46-51]
- */
+// Representa um navio individual.
 typedef struct {
-    char name[20]; // Nome (ex: "Porta-aviões")
-    int length;    // Tamanho (ex: 5 células)
-    int hits;      // Quantos tiros já levou
-    int placed;    // Flag (1 ou 0) se já foi posicionado
+    char name[20];
+    int length;
+    int hits;      // quantidade de acertos recebidos
+    int placed;    // flag: 1 se posicionado, 0 caso contrário
 } Ship;
 
-/**
- * Representa a frota de um jogador (um conjunto de navios).
- * [cite: 52-55]
- */
+// Conjunto de navios pertencentes a um jogador.
 typedef struct {
-    Ship *ships; // Ponteiro para o array de navios (alocado com malloc)
-    int count;   // Quantidade de navios na frota
+    Ship *ships; // vetor de navios (alocado dinamicamente)
+    int count;   // número de navios
 } Fleet;
 
-/**
- * Representa um jogador.
- * [cite: 56-61]
- */
+// Representação de um jogador.
 typedef struct {
-    Board board; // Tabuleiro COM MEUS NAVIOS
-    Board shots; // Tabuleiro ONDE EU ATIREI (a visão do inimigo)
-    Fleet fleet; // Minha frota
-    char nickname[32]; // Nome
+    Board board;  // tabuleiro com os próprios navios
+    Board shots;  // visão do jogador sobre os tiros realizados
+    Fleet fleet;  // frota do jogador
+    char nickname[32];
 } Player;
 
-/**
- * A estrutura "mãe" que controla o estado do jogo.
- * [cite: 62-66]
- */
+// Estado global do jogo.
 typedef struct {
-    Player p1; // Jogador 1
-    Player p2; // Jogador 2
-    int current_player; // De quem é a vez (1 ou 2)
-    int game_over;      // Flag (1 ou 0) se o jogo acabou
+    Player p1;
+    Player p2;
+    int current_player; // 1 ou 2
+    int game_over;      // 1 se o jogo terminou, 0 caso contrário
 } Game;
 
+// Controle do fluxo do jogo: inicialização, loop e limpeza.
+void game_start();
 
-#endif // Fim do GAME_H
+#endif // GAME_H
