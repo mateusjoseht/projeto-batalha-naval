@@ -1,142 +1,284 @@
+/**
+ * @file game.c
+ * @brief Implementação da lógica central do jogo (Fluxo, Turnos, Regras).
+ * [cite_start]Atende aos requisitos de controle de fluxo e modularização[cite: 155].
+ */
+
 #include "game.h"
-#include "io.h"     // (Para funções de UI, como io_print_winner)
-#include "board.h"  // (Para board_create, board_destroy)
-#include "fleet.h"  // (Para fleet_create)
+#include "io.h"
+#include "board.h"
+#include "fleet.h"
+#include "rnd.h"
+#include <stdio.h>
+#include <stdlib.h> 
+#include <ctype.h>
+#include <string.h>
 
-/*
- * Inicializa o estado do jogo.
- *
- * Descrição:
- *  - Prepara os jogadores e aloca os recursos necessários (tabuleiros e frotas).
- *  - Em caso de falha parcial, a função limpa os recursos já alocados
- *    antes de retornar false.
- *
- * Parâmetros:
- *  - game_ptr: ponteiro para a estrutura Game que será inicializada.
- *
- * Retorno:
- *  - true em caso de inicialização bem-sucedida; false caso contrário.
+// Configurações padrão (Persistem durante a execução)
+static int CURRENT_SIZE = 10;
+static char CURRENT_MODE = 'A';
+
+/**
+ * Limpa o terminal para manter a interface limpa.
  */
-bool game_init(Game* game_ptr) {
-    printf("DEBUG: Função game_init() chamada.\n");
-    int rows = 10, cols = 10;
-
-    // 3. Criar tabuleiros (usando board.c)
-    //    Passamos o *endereço* (&) do board que já existe
-    if (!board_init(&game_ptr->p1.board, rows, cols)) {
-        printf("ERRO CRÍTICO: Falha ao alocar tabuleiro P1.\n");
-        return false;
-    }
-    if (!board_init(&game_ptr->p2.board, rows, cols)) {
-        printf("ERRO CRÍTICO: Falha ao alocar tabuleiro P2.\n");
-        board_cleanup(&game_ptr->p1.board); // Limpa o P1 que deu certo
-        return false;
-    }
-    
-    // 4. Criar frotas (usando fleet.c)
-    if (!fleet_init(&game_ptr->p1.fleet)) {
-        printf("ERRO CRÍTICO: Falha ao alocar frota P1.\n");
-        board_cleanup(&game_ptr->p1.board); // Limpa tudo
-        board_cleanup(&game_ptr->p2.board);
-        return false;
-    }
-    if (!fleet_init(&game_ptr->p2.fleet)) {
-        printf("ERRO CRÍTICO: Falha ao alocar frota P2.\n");
-        board_cleanup(&game_ptr->p1.board); // Limpa tudo
-        board_cleanup(&game_ptr->p2.board);
-        fleet_cleanup(&game_ptr->p1.fleet);
-        return false;
-    }
-
-    // 5. Posicionar frotas (usando fleet.c e io.c)
-    // ...
-    
-    game_ptr->current_player = 1; 
-    game_ptr->game_over = 0;      
-    
-    printf("DEBUG: game_init() CONCLUÍDO.\n");
-    return true; // Sucesso!
+void clear_screen() {
+    #ifdef _WIN32
+        system("cls");
+    #else
+        system("clear");
+    #endif
 }
 
-/*
- * Loop principal do jogo.
- *
- * Descrição:
- *  - Executa os turnos alternados até que 'game_over' seja marcado.
- *  - Chamadas a funções de I/O, processamento de tiro e verificação
- *    de vitória devem ocorrer aqui.
- *
- * Parâmetros:
- *  - game_ptr: ponteiro para o estado atual do jogo.
- */
-void game_loop(Game* game_ptr) {
-    printf("DEBUG: Função game_loop() chamada.\n");
-    
-    while (game_ptr->game_over == 0) {
-        // --- Lógica do Jogo (A ser implementada) ---
-        // 1. Mostrar os tabuleiros (usando board_print)
-        // 2. Indicar de quem é o turno
-        // 3. Pedir coordenadas do tiro (usando io_get_coordinates)
-        // 4. Processar o tiro (game_process_shot)
-        // 5. Verificar se houve vitória (game_check_victory)
-        // 6. Trocar o jogador (game_ptr->current_player)
-        
-        printf("DEBUG: Turno do jogador %d...\n", game_ptr->current_player);
-        
-        // ---- APENAS PARA TESTE ----
-        // Vamos forçar o fim do jogo para não ficar em loop infinito
-        if (game_ptr->current_player == 1) {
-            game_ptr->current_player = 2; // Troca o turno
-        } else {
-            game_ptr->game_over = 1; // Termina o jogo
+// --- Funções Auxiliares de Input ---
+
+Orientation ask_orientation() {
+    char buf[32];
+    while (1) {
+        printf("Orientacao (H)orizontal ou (V)ertical? ");
+        if (fgets(buf, sizeof(buf), stdin)) {
+            char c = toupper(buf[0]);
+            if (c == 'H') return ORIENT_H;
+            if (c == 'V') return ORIENT_V;
         }
-        // -------------------------
     }
 }
 
-/*
- * Exibe o resultado final do jogo.
- *
- * Descrição:
- *  - Determina o vencedor (quando aplicável) e delega a impressão
- *    para as funções de I/O apropriadas.
- *
- * Parâmetros:
- *  - game_ptr: ponteiro para o estado final do jogo.
+/**
+ * Gerencia o posicionamento manual de navios.
+ * Garante que o jogador posicione todos os navios da frota sem colisão.
  */
-void game_show_result(Game* game_ptr) {
-    printf("DEBUG: Função game_show_result() chamada.\n");
-    
-    // Determinar o vencedor e apresentar resultado ao usuário.
-    printf("O jogo acabou! (Vencedor a ser determinado)\n");
+bool place_ships_manually(Player *p) {
+    printf("\n--- POSICIONAMENTO MANUAL PARA %s ---\n", p->nickname);
+    board_print(p->board, true); 
+
+    for (int i = 0; i < p->fleet.count; i++) {
+        Ship *ship = &p->fleet.ships[i];
+        bool placed = false;
+        while (!placed) {
+            printf("\nPosicionando: %s (Tamanho: %d)\n", ship->name, ship->length);
+            
+            int r, c;
+            // Se o usuário tentar sair no setup, cancelamos o manual
+            if (!prompt_coord_loop(p->board->rows, p->board->cols, &r, &c)) {
+                printf("Cancelando manual... completando com automatico.\n");
+                return false; 
+            }
+            
+            Orientation orient = ask_orientation();
+            
+            // Validação de regras de posicionamento
+            if (board_can_place(p->board, r, c, orient, ship->length)) {
+                board_place_ship(p->board, r, c, orient, ship->length, i);
+                ship->placed = 1;
+                placed = true;
+                printf("Navio posicionado!\n");
+                board_print(p->board, true);
+            } else {
+                printf("ERRO: Posicao invalida ou colisao. Tente novamente.\n");
+            }
+        }
+    }
+    return true;
 }
 
-/*
- * Ponto de controle do jogo: orquestra inicialização, loop e limpeza.
- *
- * Fluxo:
- *  1. Cria a instância local de Game.
- *  2. Inicializa recursos por meio de game_init().
- *  3. Executa game_loop() enquanto o jogo não terminar.
- *  4. Mostra o resultado e realiza a limpeza de recursos alocados.
+/**
+ * Configura os recursos (Board e Fleet) de um jogador.
+ * Realiza alocação de memória e posicionamento inicial.
+ */
+bool setup_player_resources(Player *p, int rows, int cols, char mode) {
+    // 1. Cria Tabuleiro (Alocação Dinâmica - Malloc)
+    p->board = board_create(rows, cols);
+    if (!p->board) return false;
+
+    // 2. Cria Frota
+    fleet_init(&p->fleet);
+
+    // 3. Posiciona Navios
+    bool placed_ok = false;
+    if (mode == 'A' || mode == 'a') {
+        placed_ok = fleet_place_randomly(&p->fleet, p->board);
+    } else {
+        if (!place_ships_manually(p)) {
+            // Fallback para automático se manual falhar/cancelar
+            placed_ok = fleet_place_randomly(&p->fleet, p->board);
+        } else {
+            placed_ok = true;
+        }
+    }
+    return placed_ok;
+}
+
+void game_settings() {
+    int opcao = 0;
+    char buf[10];
+    do {
+        clear_screen();
+        printf("=== CONFIGURACOES ===\n");
+        printf("1. Tamanho do Tabuleiro (Atual: %dx%d)\n", CURRENT_SIZE, CURRENT_SIZE);
+        printf("2. Modo de Posicionamento (Atual: %c)\n", CURRENT_MODE);
+        printf("3. Voltar\n");
+        printf("Escolha: ");
+        if (fgets(buf, sizeof(buf), stdin)) opcao = atoi(buf);
+
+        switch (opcao) {
+            case 1: CURRENT_SIZE = ask_board_size(6, 26); break;
+            case 2: CURRENT_MODE = ask_placement_mode(); break;
+            case 3: break;
+            default: printf("Opcao invalida.\n"); break;
+        }
+    } while (opcao != 3);
+}
+
+bool game_init(Game *game) {
+    rnd_init(); 
+    clear_screen();
+    
+    printf("=== INICIANDO NOVA PARTIDA ===\n");
+    printf("Configuracao: %dx%d | Modo %s\n", 
+           CURRENT_SIZE, CURRENT_SIZE, (CURRENT_MODE == 'A' ? "Automatico" : "Manual"));
+
+    // Input de nomes centralizado via IO.c
+    printf("\n--- Jogador 1 ---\n");
+    ask_nickname(game->p1.nickname, sizeof(game->p1.nickname));
+
+    printf("\n--- Jogador 2 ---\n");
+    ask_nickname(game->p2.nickname, sizeof(game->p2.nickname));
+
+    // Inicialização de recursos e validação de memória
+    if (!setup_player_resources(&game->p1, CURRENT_SIZE, CURRENT_SIZE, CURRENT_MODE)) return false;
+    if (!setup_player_resources(&game->p2, CURRENT_SIZE, CURRENT_SIZE, CURRENT_MODE)) return false;
+
+    if (CURRENT_MODE == 'A') printf("\n[Frotas posicionadas automaticamente]\n");
+
+    game->current_player = 1;
+    game->game_over = 0;
+    
+    printf("\nPressione Enter para comecar...");
+    getchar(); 
+    return true;
+}
+
+/**
+ * Exibe o estado atual dos tabuleiros para o jogador da vez.
+ */
+void render_turn(Player *attacker, Player *defender) {
+    clear_screen();
+    printf("\n-- Turno de %s --\n", attacker->nickname);
+    printf("(Digite 'SAIR' para encerrar)\n\n");
+    
+    printf("Tabuleiro inimigo (%s):\n", defender->nickname);
+    board_print(defender->board, false); // False = Esconde navios (Fog of War)
+
+    printf("\nSeu tabuleiro (%s):\n", attacker->nickname);
+    board_print(attacker->board, true);  // True = Mostra navios
+}
+
+/**
+ * Processa o tiro: atualiza tabuleiro e verifica danos na frota.
+ * Retorna true se o jogo deve continuar, false se acabou ou erro.
+ */
+void execute_shot(Player *defender, int r, int c, int *total_hits) {
+    int hit_ship_id = -1;
+    int result = board_shoot(defender->board, r, c, &hit_ship_id);
+
+    printf("\nRESULTADO: ");
+    if (result == 0) {
+        printf("AGUA.\n");
+    } 
+    else if (result == 1) {
+        char *ship_name = defender->fleet.ships[hit_ship_id].name;
+        bool sunk = fleet_update_hit(&defender->fleet, hit_ship_id);
+        
+        if (sunk) printf("AFUNDOU %s!\n", ship_name);
+        else printf("ACERTOU no %s!\n", ship_name);
+        
+        (*total_hits)++;
+    } 
+    else {
+        printf("Tiro invalido ou repetido.\n");
+        // Pequena pausa para o usuário ler o erro
+        printf("Pressione Enter..."); 
+        getchar();
+    }
+}
+
+/**
+ * Exibe a tela de vitória e estatísticas finais.
+ [cite_start]* [cite: 73, 97-99]
+ */
+void show_victory_screen(Player *winner, Player *loser, int shots, int hits) {
+    printf("\n*** FIM DE JOGO ***\n");
+    printf("Vencedor: %s\n", winner->nickname);
+    
+    float precision = 0.0f;
+    if (shots > 0) precision = ((float)hits / shots) * 100.0f;
+    printf("Tiros: %d | Acertos: %d | Precisao: %.1f%%\n", shots, hits, precision);
+
+    printf("\n--- Estado final dos tabuleiros ---\n");
+    printf("Tabuleiro de %s (Vencedor):\n", winner->nickname);
+    board_print(winner->board, true);
+
+    printf("\nTabuleiro de %s (Perdedor - Visao Real):\n", loser->nickname);
+    board_print(loser->board, true); // Mostra onde estavam os navios escondidos
+
+    printf("\nMapa de tiros:\n");
+    board_print(loser->board, false);
+    
+    printf("\nPressione Enter para voltar ao menu...");
+    getchar();
+}
+
+/**
+ * Loop principal de turnos. Alterna jogadores até a vitória.
+ */
+void game_loop(Game *game) {
+    int total_shots = 0;
+    int total_hits = 0;
+
+    while (!game->game_over) {
+        Player *attacker = (game->current_player == 1) ? &game->p1 : &game->p2;
+        Player *defender = (game->current_player == 1) ? &game->p2 : &game->p1;
+
+        render_turn(attacker, defender);
+
+        int r, c;
+        // Validação de entrada e opção de saída
+        if (!prompt_coord_loop(defender->board->rows, defender->board->cols, &r, &c)) {
+            printf("\nJogo encerrado por %s.\n", attacker->nickname);
+            game->game_over = 1;
+            return;
+        }
+
+        execute_shot(defender, r, c, &total_hits);
+        total_shots++;
+
+        // Condição de Vitória
+        if (fleet_is_destroyed(&defender->fleet)) {
+            game->game_over = 1;
+            show_victory_screen(attacker, defender, total_shots, total_hits);
+        } else {
+            printf("\nPressione Enter para passar a vez...");
+            getchar(); 
+            game->current_player = (game->current_player == 1) ? 2 : 1;
+        }
+    }
+}
+
+/**
+ * Ponto de entrada do módulo Game. Gerencia ciclo de vida e memória.
  */
 void game_start() {
-    printf("DEBUG: game_start() foi chamada.\n");
-    
-    Game o_jogo; // Instância local do jogo
-    
-    if (game_init(&o_jogo)) {
-        game_loop(&o_jogo);
-        game_show_result(&o_jogo);
-    } else {
-        printf("Erro: Falha ao inicializar o jogo!\n");
+    Game game;
+    // Inicializa
+    if (game_init(&game)) {
+        // Loop
+        if (!game.game_over) {
+            game_loop(&game);
+        }
     }
-
-    // Limpeza de recursos (chamada segura mesmo em falhas parciais).
-    board_cleanup(&o_jogo.p1.board);
-    board_cleanup(&o_jogo.p2.board);
-    fleet_cleanup(&o_jogo.p1.fleet);
-    fleet_cleanup(&o_jogo.p2.fleet);
-
-    printf("DEBUG: game_start() finalizada (memória limpa).\n");
+    // Limpeza de Memória (Ordem inversa à alocação)
+    if (game.p1.board) board_free(game.p1.board);
+    if (game.p2.board) board_free(game.p2.board);
+    fleet_free(&game.p1.fleet);
+    fleet_free(&game.p2.fleet);
 }
