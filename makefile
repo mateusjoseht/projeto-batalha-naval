@@ -7,10 +7,10 @@ OBJS = $(patsubst src/%.c, %.o, $(SRCS))
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-    $(CC) $(CFLAGS) -o $(TARGET) $(OBJS)
+	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS)
 
 %.o: src/%.c
-    $(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-    rm -f *.o $(TARGET)
+	rm -f *.o $(TARGET)

@@ -2,6 +2,7 @@
 #include "rnd.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 void fleet_init(Fleet *f) {
     // Regra: 1 Porta-aviões(5), 1 Encouraçado(4), 2 Cruzadores(3), 2 Destroyers(2)

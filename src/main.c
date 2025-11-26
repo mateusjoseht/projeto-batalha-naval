@@ -1,22 +1,62 @@
-#include "board.h"
-#include "io.h"
 #include <stdio.h>
+#include <stdlib.h> // Para system() e atoi()
+#include "game.h"
+#include "io.h"     
 
-int main(void) {
-    int rows = 10, cols = 10;
-    Board *b = board_create(rows, cols);
-    if (!b) return 1;
-    // testa colocação manual básica
-    board_place_ship(b, 1, 1, ORIENT_H, 3, 0); // navio id 0 em B2 horizontal
-    board_print(b, true);
-    int r,c;
-    prompt_coord_loop(rows, cols, &r, &c);
-    int ship_id;
-    int res = board_shoot(b, r, c, &ship_id);
-    if (res == 0) printf("Resultado: AGUA\n");
-    else if (res == 1) printf("Resultado: ACERTO no navio %d\n", ship_id);
-    else printf("Tiro inválido/repetido\n");
-    board_print(b, true);
-    board_free(b);
+void main_clear() {
+    #ifdef _WIN32
+        system("cls");
+    #else
+        system("clear");
+    #endif
+}
+
+int main() {
+    int escolha_menu = 0;
+    char buf[16];
+
+    do {
+        main_clear();
+        printf("=== BATALHA NAVAL ===\n");
+        printf("1) Novo jogo\n");
+        printf("2) Configuracoes\n");
+        printf("3) Sair\n");
+        printf("> ");
+        
+        // Lê a opção do usuário
+        if (fgets(buf, sizeof(buf), stdin)) {
+            escolha_menu = atoi(buf);
+        }
+
+        switch (escolha_menu) {
+            case 1:
+                // Inicia o jogo (o fluxo de perguntas estará dentro do game_start)
+                game_start(); 
+                
+                // Pausa quando o jogo acaba para o usuário ver o resultado
+                printf("\nPressione Enter para voltar ao menu...");
+                getchar();
+                break;
+
+            case 2:
+                // Como o "Novo Jogo" agora pergunta tudo, Configurações é opcional,
+                // mas vamos chamar a função para manter o requisito do menu.
+                game_settings(); 
+                break;
+
+            case 3:
+                printf("Saindo...\n");
+                break;
+
+            default:
+                printf("Opcao invalida!\n");
+                // Pequena pausa para ler o erro
+                printf("Pressione Enter...");
+                getchar();
+                break;
+        }
+
+    } while (escolha_menu != 3);
+
     return 0;
 }

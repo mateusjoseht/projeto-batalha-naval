@@ -1,98 +1,41 @@
 #ifndef GAME_H
 #define GAME_H
 
-// Incluindo as bibliotecas padrão que o projeto permite [cite: 10]
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <ctype.h>
 #include <stdbool.h>
+#include "board.h" // Inclui a definição de Board do P1
 
-// --- Enums (Tipos Enumerados) ---
+// --- 1. Definições das Estruturas da Frota ---
+// Elas precisam vir ANTES da struct Player, pois Player usa Fleet.
 
-/**
- * Define os possíveis estados de uma célula do tabuleiro.
- * [cite: 36]
- */
-typedef enum { 
-    CELL_WATER, // Água (padrão)
-    CELL_SHIP,  // Navio posicionado
-    CELL_HIT,   // Navio atingido
-    CELL_MISS   // Tiro na água
-} CellState;
-
-/**
- * Define a orientação de um navio no tabuleiro.
- * [cite: 45]
- */
-typedef enum { 
-    ORIENT_H, // Horizontal
-    ORIENT_V  // Vertical
-} Orientation;
-
-
-// --- Structs (Estruturas de Dados) ---
-
-/**
- * Representa uma única célula do tabuleiro.
- * [cite: 37-40]
- */
 typedef struct {
-    CellState state; // O estado (água, navio, etc.)
-    int ship_id;     // ID do navio que está aqui (ou -1 se for água)
-} Cell;
-
-/**
- * Representa o tabuleiro do jogo.
- * [cite: 41-44]
- */
-typedef struct {
-    int rows, cols; // Dimensões
-    Cell *cells;    // Ponteiro para o array de células (alocado com malloc) [cite: 43]
-} Board;
-
-/**
- * Representa um navio da frota.
- * [cite: 46-51]
- */
-typedef struct {
-    char name[20]; // Nome (ex: "Porta-aviões")
-    int length;    // Tamanho (ex: 5 células)
-    int hits;      // Quantos tiros já levou
-    int placed;    // Flag (1 ou 0) se já foi posicionado
+    char name[20];
+    int length;
+    int hits;
+    int placed;
 } Ship;
 
-/**
- * Representa a frota de um jogador (um conjunto de navios).
- * [cite: 52-55]
- */
 typedef struct {
-    Ship *ships; // Ponteiro para o array de navios (alocado com malloc)
-    int count;   // Quantidade de navios na frota
+    Ship *ships; // Array de navios
+    int count;
 } Fleet;
 
-/**
- * Representa um jogador.
- * [cite: 56-61]
- */
+
+// --- 2. Estruturas Principais do Jogo ---
+
 typedef struct {
-    Board board; // Tabuleiro COM MEUS NAVIOS
-    Board shots; // Tabuleiro ONDE EU ATIREI (a visão do inimigo)
-    Fleet fleet; // Minha frota
-    char nickname[32]; // Nome
+    Board *board;      // Ponteiro para o Board (definido em board.h)
+    Fleet fleet;       // Struct Fleet (definida logo acima)
+    char nickname[32]; // Nome do jogador
 } Player;
 
-/**
- * A estrutura "mãe" que controla o estado do jogo.
- * [cite: 62-66]
- */
 typedef struct {
-    Player p1; // Jogador 1
-    Player p2; // Jogador 2
-    int current_player; // De quem é a vez (1 ou 2)
-    int game_over;      // Flag (1 ou 0) se o jogo acabou
+    Player p1; 
+    Player p2; 
+    int current_player; // 1 ou 2
+    int game_over;      
 } Game;
+// Funções do game.c
+void game_start();
+void game_settings(); // <--- ADICIONE ESTA LINHA AQUI
 
-
-#endif // Fim do GAME_H
+#endif // GAME_H
