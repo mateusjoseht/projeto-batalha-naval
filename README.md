@@ -87,7 +87,7 @@ io.c/h (A Interface): Centraliza inputs do usuário e validações de string (ex
 
 rnd.c/h (Utilitários): Encapsula a geração de números aleatórios.
 
-## Gerenciamento de Memória
+## 🧹 Gerenciamento de Memória
 
 O projeto segue estritamente a regra RAII (Resource Acquisition Is Initialization) manual:
 
