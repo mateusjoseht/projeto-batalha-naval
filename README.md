@@ -41,7 +41,7 @@ mingw32-make clean
 
 🎮 Como Jogar
 
-Configuração: Ao iniciar, você pode ir em Configurações para definir o tamanho do tabuleiro (6 a 26) e o modo de posicionamento.
+Configuração: Ao iniciar, você pode ir em Configurações para definir o tamanho do tabuleiro (6 a 26) e o modo de posicionamento(tamanho padrão é 10x10).
 
 Posicionamento:
 
